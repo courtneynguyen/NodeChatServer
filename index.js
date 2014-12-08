@@ -1,95 +1,63 @@
 var express = require('express');
 var app = express();
-var db = require('diskdb');
-db = db.connect('collections', ['users','chatrooms']);
+var config = require('./config'),
+		mongoose = require('mongoose'),
+		Users = require('./models/users.js'),
+		Chatrooms = require('./models/chatrooms.js');
 
+var db = mongoose.connect('mongodb://'+config.hostname+config.db);
 var http = require('http').Server(app);
 var io = require('socket.io')(http);
+var user, channel;
 
 http.listen(3000, function(){
-			console.log('listening on *:3000');	
+				console.log('listening on *:3000');	
 });
-var user;
-var channel;
 
+var online = [];
 io.on('connection', function(socket){
-	console.log('user connected');
- socket.on('disconnect', function(socket){
-				 
-		db.users.remove(user);
-		var chat = db.chatrooms.findOne({chatroom:channel});
-		console.log(chat);
-		var index = 0;
-				for(var x=0; x< chat.users.length; x++){
-			if(chat.users[x].nickname === user.nickname)
-				 index = x;
-			}
-				console.log('index',index);
-		if(index > 0){
-		chat.users.substring(index, 1);
-		}
-		else{
-			new Error({"error":"Your nickname is weird and caused an error. Thaaaanks."});
-		}
-		
-  });
- socket.on('send message', function(datapacket, test){
+				console.log('user connected');
 
-				 console.log('SUCCESS!');
-				 console.log('arguments:');
-				 console.log(arguments);
+				socket.on('join room', function(data){
+								console.log('WHAT IS room ID??', data.room);
+								socket.join(data.room);
+								if(online.indexOf(data.nickname) < 1){
+												var created = new Date();
+								socket.emit('joining user', data);
+
+								socket.to(data.room).emit('receive message',{"user":data.nickname,"msg":" has joined the room.", "created":created} );
 
 
+								socket.user = data.nickname;
+								socket.room = data.room;
+								
+								online.push(data.nickname);
+								}
+								else{
+									socket.emit('joining user', false);
+								}
 
-	//	db.chatrooms.update({"chatroom":datapacket.chatroom}, {"messages":datapacket.messages});			 
- });
- socket.on('user', function(data){
-			var theUser = db.users.find({"nickname":data.nickname});
-			var theChat = db.chatrooms.findOne({"chatroom":data.chatroom});
-			var isValid = false;
-			channel = data.chatroom;
+				});
+				socket.on('joined', function(){
+								var created = new Date();
+								socket.emit('setup chatroom', {"room":socket.room}, socket.user);				
+			socket.to(socket.room).emit('receive message', {"user":socket.user,"msg":" has joined the room.", "created":created});	
+				});
+				socket.on('loading room', function(){
+								console.log('channel is '+socket.room);
+								socket.emit('setup chatroom', {"room":socket.room}, data.nickname);
+				});
+				socket.on('disconnect', function(){
+								console.log('USER DISCONNECTED',socket.user);
+								var created = new Date();
+								socket.to(socket.room).emit('receive message', {"user":socket.user,"msg":" has left the room.", "created":created});
+				});
+				socket.on('send message', function(message){
 
-			if(theUser.length > 0){
-				//console.log('FOUND THE USER', theUser);
-						}
-			else{
-							isValid = true;
-			//console.log('USER NOT FOUND! CONTINUE ON TO CHAT');
-			var saveUser = {"nickname":data.nickname};
-			user = saveUser;
-			db.users.save(saveUser);
-						
-			
-			}
+								var created = new Date();
+								socket.to(socket.room).emit('receive message', {"user":socket.user,"msg":message,"created":created});
 
- if(isValid){
- 			if(theChat){
-				theChat.users.push(user);
+				});
 
-				var isValid = true;
-				io.emit('enter', theChat, isValid);
-
-			}
-			else{
-
-			  db.chatrooms.save({"chatroom":channel,
-													"users": [user],
-													"messages": [],
-													"isValid":true});
-				io.emit('enter', {"chatroom":channel,
-													"users": [user],
-													"messages": [],
-								"isValid":true});
-			}
- }
-	else{
-	io.emit('enter', {"isValid":false});
-	}
- 			
- });
-
-	// if(db.users.findOne({
-	// 	userid:
-	// }))	
 });
 

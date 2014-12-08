@@ -6,6 +6,8 @@
   "dependencies": {
     "diskdb": "^0.1.14",
     "express": "^4.10.4",
+    "mongodb": "^1.4.23",
+    "mongoose": "^3.8.20",
     "socket.io": "^1.2.1"
   },
   "devDependencies": {},
